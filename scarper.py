@@ -4,7 +4,8 @@ import math
 import pandas as pd
 from urllib.parse import quote
 from datetime import datetime, timedelta
-from flask import Flask, request
+from flask import Flask, request,Response
+import json
 
 app = Flask(__name__)
 
@@ -19,7 +20,7 @@ def run_linkedInScrap_function():
     print("Job Post:", job_post)
    # Call your xyz_function with the parameters
     result = linkedin_scrapping_business_logic(country, job_post)
-    return 'CSV GENERATING...'
+    return json.dumps(result)
 
 
 def convert_relative_time(time_text):
@@ -63,7 +64,7 @@ def linkedin_scrapping_business_logic(country, job_post):
     headers={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36"}
     target_url='https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords={}&location={}&geoId=102713980&currentJobId=3415227738&start={}'
 
-    for i in range(0,math.ceil(100/25)):
+    for i in range(0,math.ceil(50/25)):
         res = requests.get(target_url.format(jobPost_encoded_string,country_encoded_string,i))
         soup=BeautifulSoup(res.text,'html.parser')
         alljobs_on_this_page=soup.find_all("li")
@@ -74,8 +75,8 @@ def linkedin_scrapping_business_logic(country, job_post):
 
 
     target_url='https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{}'
-    for j in range(0,len(l)):
-
+    # originally len(l)
+    for j in range(0,10):
         resp = requests.get(target_url.format(l[j]))
         soup=BeautifulSoup(resp.text,'html.parser')
         print(target_url.format(l[0]))
@@ -111,21 +112,21 @@ def linkedin_scrapping_business_logic(country, job_post):
                 company_website = soup.find("a", {"class": "link-no-visited-state"})
                 o["companyLinkDinProfile"] = company_linkedin_profile["href"] if company_linkedin_profile else None
             else:
-                print('2')
                 o["companyLinkDinProfile"] = None
         except Exception as e:
-            print('2')
             print('Error:', e)
         try:
             time_text = soup.find("span",{"class":"posted-time-ago__text"}).text.strip();
             dateOnPosted = convert_relative_time(time_text)
-            o["postedOn"]= dateOnPosted
+            o["postedOn"]= dateOnPosted.isoformat()
         except:
             o["postedOn"]=None
         k.append(o)
         o={}
 
-    df = pd.DataFrame(k)
-    df.to_csv('linkedinJobs.csv', index=False, encoding='utf-8')
+    # df = pd.DataFrame(k)
+    # df.to_csv('linkedinJobs.csv', index=False, encoding='utf-8')
+    print(k);
+    return k;
 if __name__ == '__main__':
     app.run(debug=True)  # Run the Flask app in debug mode
