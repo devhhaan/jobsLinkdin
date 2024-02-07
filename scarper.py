@@ -1,39 +1,28 @@
-import asyncio
 import requests
 from bs4 import BeautifulSoup
+import math
+import pandas as pd
 from urllib.parse import quote
 from datetime import datetime, timedelta
-from proxybroker import Broker
+from flask import Flask, request
 
-# Manually set up asyncio event loop for Windows
-if not asyncio.get_event_loop().is_running():
-    asyncio.set_event_loop(asyncio.ProactorEventLoop())
-
-# Function to get a rotating proxy
-def get_rotating_proxy():
-    proxies = []
-    broker = Broker()
-    tasks = asyncio.gather(broker.find(types=['HTTP', 'HTTPS'], limit=1))
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(tasks)
-
-    for proxy in tasks.result():
-        proxies.append(f"{proxy.host}:{proxy.port}")
-
-    return proxies[0]
+app = Flask(__name__)
 
 
+@app.route('/run_linkedInScrap_function', methods=['GET'])
+def run_linkedInScrap_function():
+    print('dev')
+    # Get parameters from the request
+    country = request.args.get('country')
+    job_post = request.args.get('job_post')
 
-l = []
-o = {}
-k = []
-country = "India"
-country_encoded_string = quote(country)
+    print("Country:", country)
+    print("Job Post:", job_post)
+   # Call your xyz_function with the parameters
+    result = linkedin_scrapping_business_logic(country, job_post)
+    return 'CSV GENERATING...'
 
-jobPost = "react js"
-jobPost_encoded_string = quote(jobPost)
 
-# Function to convert relative time to absolute time
 def convert_relative_time(time_text):
     now = datetime.now()
 
@@ -63,90 +52,81 @@ def convert_relative_time(time_text):
 
     else:
         raise ValueError("Unsupported time format")
+def linkedin_scrapping_business_logic(country, job_post):
+    l=[]
+    o={}
+    k=[]
+    country_ = country
+    country_encoded_string = quote(country_)
+
+    jobPost_ = job_post
+    jobPost_encoded_string = quote(jobPost_)
+    headers={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36"}
+    target_url='https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords={}&location={}&geoId=102713980&currentJobId=3415227738&start={}'
+
+    for i in range(0,math.ceil(100/25)):
+        res = requests.get(target_url.format(jobPost_encoded_string,country_encoded_string,i))
+        soup=BeautifulSoup(res.text,'html.parser')
+        alljobs_on_this_page=soup.find_all("li")
+        print(len(alljobs_on_this_page))
+        for x in range(0,len(alljobs_on_this_page)):
+            jobid = alljobs_on_this_page[x].find("div",{"class":"base-card"}).get('data-entity-urn').split(":")[3]
+            l.append(jobid)
 
 
-# Set up headers and target URL
-headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36"
-}
+    target_url='https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{}'
+    for j in range(0,len(l)):
 
-target_url = 'https://www.l8888888888888888888&location={}&geoId=102713980&currentJobId=3415227738&start={}'
-
-# Loop through job postings
-for i in range(0, 1):
-    # Use rotating proxy for each request
-    proxy = get_rotating_proxy()
-    proxies = {"http": f"http://{proxy}", "https": f"https://{proxy}"}
-    
-    res = requests.get(target_url.format(jobPost_encoded_string, country_encoded_string, i), headers=headers, proxies=proxies)
-    soup = BeautifulSoup(res.text, 'html.parser')
-    alljobs_on_this_page = soup.find_all("li")
-    print(len(alljobs_on_this_page))
-    for x in range(0, len(alljobs_on_this_page)):
-        jobid = alljobs_on_this_page[x].find("div", {"class": "base-card"}).get('data-entity-urn').split(":")[3]
-        l.append(jobid)
-
-# Set up the target URL for detailed job information
-target_url = 'https://www.9999999999999999999999st/jobs/api/jobPosting/{}'
-
-# Loop through job details
-for j in range(0, 1):
-    # Use rotating proxy for each request
-    proxy = get_rotating_proxy()
-    proxies = {"http": f"http://{proxy}", "https": f"https://{proxy}"}
-    
-    resp = requests.get(target_url.format(l[j]), headers=headers, proxies=proxies)
-    soup = BeautifulSoup(resp.text, 'html.parser')
-    
-    try:
-        o["company"]=soup.find("div",{"class":"top-card-layout__card"}).find("a").find("img").get('alt')
-    except:
-        o["company"]=None
-
-    try:
-        o["job-title"]=soup.find("div",{"class":"top-card-layout__entity-info"}).find("a").text.strip()
-    except:
-        o["job-title"]=None
-
-    try:
-        o["level"]=soup.find("ul",{"class":"description__job-criteria-list"}).find("li").text.replace("Seniority level","").strip()
-    except:
-        o["level"]=None
-    try:
-        o["jobPoster"]=soup.find("h3",{"class":"base-main-card__title"}).text.strip()
+        resp = requests.get(target_url.format(l[j]))
+        soup=BeautifulSoup(resp.text,'html.parser')
+        print(target_url.format(l[0]))
         try:
-            o["jobPostersProfile"]=soup.find("div",{"class":"base-main-card__info"}).find("h4", {"class":"base-main-card__subtitle"}).text.strip()
+            o["company"]=soup.find("div",{"class":"top-card-layout__card"}).find("a").find("img").get('alt')
         except:
-            o["jobPostersProfile"]=None
-    except:
-        o["jobPoster"]=None
-    try:
-        company_linkedin_profile = soup.find("div", {"class": "top-card-layout__card"}).find("a")
-        if company_linkedin_profile:
+            o["company"]=None
+
+        try:
+            o["job-title"]=soup.find("div",{"class":"top-card-layout__entity-info"}).find("a").text.strip()
+        except:
+            o["job-title"]=None
+
+        try:
+            o["level"]=soup.find("ul",{"class":"description__job-criteria-list"}).find("li").text.replace("Seniority level","").strip()
+        except:
+            o["level"]=None
+        try:
+            o["jobPoster"]=soup.find("h3",{"class":"base-main-card__title"}).text.strip()
+            try:
+                o["jobPostersProfile"]=soup.find("div",{"class":"base-main-card__info"}).find("h4", {"class":"base-main-card__subtitle"}).text.strip()
+            except:
+                o["jobPostersProfile"]=None
+        except:
+            o["jobPoster"]=None
+        try:
+            company_linkedin_profile = soup.find("section", {"class": "top-card-layout"}).find("div", {"class": "top-card-layout__card"}).find("a")
+            if company_linkedin_profile:
                 print('1', company_linkedin_profile["href"])
                 respInternal = requests.get(company_linkedin_profile["href"])
-                print(respInternal.raise_for_status());
-                soupInternal=BeautifulSoup(respInternal.text,'html.parser')
-                company_website = soup.find("div",{"class":"org-top-card-primary-actions__inner"}).find("a");
-                o["companyLinkDinProfile"] = company_website["href"] if company_website else None
-        else:
+                respInternal.raise_for_status()  # This will raise an error if the request is not successful
+                soupInternal = BeautifulSoup(respInternal.text, 'html.parser')
+                company_website = soup.find("a", {"class": "link-no-visited-state"})
+                o["companyLinkDinProfile"] = company_linkedin_profile["href"] if company_linkedin_profile else None
+            else:
+                print('2')
+                o["companyLinkDinProfile"] = None
+        except Exception as e:
             print('2')
-            o["companyLinkDinProfile"] = None
-    except:
-        print('3')
-        o["companyLinkDinProfile"] = None
-    try:
-        time_text = soup.find("span",{"class":"posted-time-ago__text"}).text.strip();
-        dateOnPosted = convert_relative_time(time_text)
-        o["postedOn"]= dateOnPosted
-    except:
-        o["postedOn"]=None
+            print('Error:', e)
+        try:
+            time_text = soup.find("span",{"class":"posted-time-ago__text"}).text.strip();
+            dateOnPosted = convert_relative_time(time_text)
+            o["postedOn"]= dateOnPosted
+        except:
+            o["postedOn"]=None
+        k.append(o)
+        o={}
 
-    print(o['companyLinkDinProfile'], o['postedOn']);
-    k.append(o)
-    o={}
-
-
-# Convert the list of job details to a DataFrame and save it to a CSV file
-df = pd.DataFrame(k)
-df.to_csv('linkedinJobs.csv', index=False, encoding='utf-8')
+    df = pd.DataFrame(k)
+    df.to_csv('linkedinJobs.csv', index=False, encoding='utf-8')
+if __name__ == '__main__':
+    app.run(debug=True)  # Run the Flask app in debug mode
