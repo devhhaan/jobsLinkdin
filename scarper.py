@@ -11,7 +11,6 @@ app = Flask(__name__)
 
 @app.route('/run_linkedInScrap_function', methods=['GET'])
 def run_linkedInScrap_function():
-    print('dev')
     # Get parameters from the request
     country = request.args.get('country')
     job_post = request.args.get('job_post')
